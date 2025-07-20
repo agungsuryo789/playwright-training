@@ -1,0 +1,118 @@
+name: Playwright Tests CI/CD
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to run tests against'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      browser:
+        description: 'Browser to run tests on'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - chromium
+          - firefox
+          - webkit
+
+env:
+  FORCE_COLOR: 1
+
+jobs:
+  test:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: lts/*
+        cache: 'pnpm'
+
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: latest
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+
+    - name: Install Playwright Browsers
+      run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
+
+    - name: Run Playwright tests
+      run: |
+        if [ "${{ github.event.inputs.browser }}" = "all" ] || [ "${{ github.event.inputs.browser }}" = "" ]; then
+          pnpm exec playwright test --project=${{ matrix.browser }}
+        else
+          pnpm exec playwright test --project=${{ github.event.inputs.browser }}
+        fi
+      env:
+        CI: true
+        TEST_ENV: ${{ github.event.inputs.environment || 'staging' }}
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: ${{ !cancelled() }}
+      with:
+        name: playwright-report-${{ matrix.browser }}
+        path: |
+          playwright-report/
+          test-results/
+        retention-days: 30
+
+  merge-reports:
+    if: ${{ !cancelled() }}
+    needs: [test]
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: lts/*
+        cache: 'pnpm'
+
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: latest
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+
+    - name: Download all reports
+      uses: actions/download-artifact@v4
+      with:
+        path: all-reports
+
+    - name: Merge HTML reports
+      run: |
+        mkdir -p merged-report
+        npx playwright merge-reports --reporter html all-reports/playwright-report-*/
+      continue-on-error: true
+
+    - name: Upload merged report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: merged-playwright-report
+        path: playwright-report/
+        retention-days: 30

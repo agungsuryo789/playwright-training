@@ -34,6 +34,11 @@ jobs:
         browser: [chromium, firefox, webkit]
         
     steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: lts/*
+
     - name: Install pnpm
       uses: pnpm/action-setup@v4
       with:
@@ -47,18 +52,13 @@ jobs:
 
     - name: Run Playwright tests
       run: |
-        if [ "${{ github.event.inputs.browser }}" = "all" ] || [ "${{ github.event.inputs.browser }}" = "" ]; then
-          pnpm exec playwright test --project=${{ matrix.browser }}
-        else
-          pnpm exec playwright test --project=${{ github.event.inputs.browser }}
-        fi
+        pnpm exec playwright test --project=${{ github.event.inputs.browser || matrix.browser }}
       env:
         CI: true
         TEST_ENV: ${{ github.event.inputs.environment || 'staging' }}
 
     - name: Upload test results
       uses: actions/upload-artifact@v4
-      if: ${{ !cancelled() }}
       with:
         name: playwright-report-${{ matrix.browser }}
         path: |

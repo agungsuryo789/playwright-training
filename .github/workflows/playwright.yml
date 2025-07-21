@@ -37,15 +37,12 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Node.js
+    - name: Setup Node.js and pnpm
       uses: actions/setup-node@v4
       with:
         node-version: lts/*
-
-    - name: Install pnpm
-      uses: pnpm/action-setup@v4
-      with:
-        version: latest
+        cache: pnpm
+        package-manager: pnpm
 
     - name: Install dependencies
       run: pnpm install --frozen-lockfile

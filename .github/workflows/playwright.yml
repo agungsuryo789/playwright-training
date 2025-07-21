@@ -34,21 +34,13 @@ jobs:
         browser: [chromium, firefox, webkit]
         
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: lts/*
-
     - name: Install pnpm
       uses: pnpm/action-setup@v4
       with:
         version: latest
 
     - name: Install dependencies
-      run: pnpm install --frozen-lockfile
+      run: pnpm install
 
     - name: Install Playwright Browsers
       run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
@@ -72,45 +64,4 @@ jobs:
         path: |
           playwright-report/
           test-results/
-        retention-days: 30
-
-  merge-reports:
-    if: ${{ !cancelled() }}
-    needs: [test]
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: lts/*
-
-    - name: Install pnpm
-      uses: pnpm/action-setup@v4
-      with:
-        version: latest
-
-    - name: Install dependencies
-      run: pnpm install --frozen-lockfile
-
-    - name: Download all reports
-      uses: actions/download-artifact@v4
-      with:
-        path: all-reports
-
-    - name: Merge HTML reports
-      run: |
-        mkdir -p merged-report
-        npx playwright merge-reports --reporter html all-reports/playwright-report-*/
-      continue-on-error: true
-
-    - name: Upload merged report
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: merged-playwright-report
-        path: playwright-report/
         retention-days: 30
